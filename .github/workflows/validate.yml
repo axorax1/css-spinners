@@ -1,0 +1,39 @@
+name: Validate
+
+on:
+  pull_request:
+    paths:
+      - 'data/**'
+  push:
+    paths:
+      - 'data/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Validate JSON Files
+        id: json-validation
+        run: |
+          cd data
+          for file in *.json; do
+            if ! jq . "$file" >/dev/null 2>&1; then
+              echo "Invalid JSON in $file"
+              exit 1
+            fi
+          done
+
+      - uses: actions/github-script@v6
+        env:
+          GH_TOKEN: ${{ github.token }}
+        if: ${{ github.event_name == 'pull_request' && failure() }}
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Invalid JSON!'
+            })
